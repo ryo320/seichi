@@ -1,0 +1,126 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Header from '../../../components/Header.astro';
+import Footer from '../../../components/Footer.astro';
+import SpotCard from '../../../components/SpotCard.astro';
+
+export async function getStaticPaths() {
+  const allSpots = await getCollection('spots');
+  
+  //全作品を特定
+  const worksMap = new Map();
+  allSpots.forEach(spot => {
+    const title = spot.data.title;
+    const genre = spot.data.genre;
+    const slug = title
+      .replace(/[。、！？！？『』]/g, '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-');
+      
+    if (!worksMap.has(slug)) {
+      worksMap.set(slug, { title, genre });
+    }
+  });
+
+  const paths: any[] = [];
+  Array.from(worksMap.entries()).forEach(([slug, { title, genre }]) => {
+    const genres = Array.isArray(genre) ? genre : [genre];
+    genres.forEach(g => {
+      paths.push({
+        params: { name: g, work: slug },
+        props: { title, genre: g },
+      });
+    });
+  });
+  return paths;
+}
+
+const { title, genre } = Astro.props;
+const allSpots = await getCollection('spots');
+const spots = allSpots.filter(s => {
+  const isTitleMatch = s.data.title === title;
+  const isGenreMatch = Array.isArray(s.data.genre) ? s.data.genre.includes(genre) : s.data.genre === genre;
+  return isTitleMatch && isGenreMatch;
+});
+
+//作品のメインポスター画像を取得
+const officialImage = spots.find(s => s.data.officialImage)?.data.officialImage || spots[0]?.data.image;
+
+const genreLabel = {
+  anime: 'アニメ',
+  drama: 'ドラマ',
+  movie: '映画'
+}[genre as 'anime' | 'drama' | 'movie'];
+
+const genreColor = {
+  anime: 'purple',
+  drama: 'blue',
+  movie: 'amber'
+}[genre as 'anime' | 'drama' | 'movie'];
+---
+
+<BaseLayout
+  title={`${title}の聖地巡礼`}
+  description={`${title}の舞台・ロケ地となった聖地${spots.length}箇所をご紹介します。`}
+>
+  <Header />
+
+  <!-- Work Hero -->
+  <div class="relative min-h-[400px] flex items-end bg-gray-900 overflow-hidden">
+    {officialImage && (
+      <div class="absolute inset-0">
+        <img
+          src={officialImage}
+          alt={title}
+          class="w-full h-full object-cover opacity-40 blur-sm scale-105"
+        />
+        <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent"></div>
+      </div>
+    )}
+    
+    <div class="relative z-10 max-w-7xl mx-auto px-4 w-full py-12 md:py-20 flex flex-col md:flex-row gap-8 items-center md:items-end">
+      {/* Poster */}
+      <div class="w-32 md:w-44 bg-gray-800 rounded-2xl overflow-hidden shadow-2xl aspect-[2/3] flex-none border-4 border-white/10">
+        <img
+          src={officialImage}
+          alt={title}
+          class="w-full h-full object-cover"
+          onerror="this.src='/images/placeholder.jpg'"
+        />
+      </div>
+      
+      <!-- Text -->
+      <div class="flex-grow text-center md:text-left">
+        <div class="flex flex-wrap justify-center md:justify-start items-center gap-3 mb-4">
+          <span class={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest bg-${genreColor}-600 text-white`}>
+            {genreLabel}
+          </span>
+          <span class="text-white/60 text-sm">{spots.length} 箇所の聖地</span>
+        </div>
+        <h1 class="font-display text-2xl md:text-4xl font-bold text-white mb-4 drop-shadow-lg">
+          {title}
+        </h1>
+        <div class="flex flex-wrap justify-center md:justify-start gap-4">
+           {/* Additional info could go here */}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 py-16">
+    <div class="flex items-center gap-3 mb-10">
+      <div class={`h-8 w-1.5 bg-${genreColor}-600 rounded-full`}></div>
+      <h2 class="font-display text-2xl md:text-3xl font-bold text-navy">
+        聖地スポット一覧
+      </h2>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      {spots.map((spot) => <SpotCard spot={spot} />)}
+    </div>
+  </main>
+
+  <Footer />
+</BaseLayout>

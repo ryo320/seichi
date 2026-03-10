@@ -1,0 +1,62 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  work: {
+    title: string;
+    genre: string | string[]; // Allow array
+    image: string;
+    spotCount: number;
+    slug: string;
+  };
+}
+
+const { work } = Astro.props;
+
+const genres = Array.isArray(work.genre) ? work.genre : [work.genre];
+const genreColorMap = {
+  anime: 'bg-purple-600 text-white',
+  drama: 'bg-blue-600 text-white',
+  movie: 'bg-amber-600 text-white'
+};
+
+
+---
+
+<div class="group relative w-full h-full transition-all duration-500 hover:z-10">
+  <a href={`/genre/${genres[0]}/${work.slug}`} class="block h-full">
+    <div class="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-lg border border-gray-100/50 group-hover:shadow-2xl group-hover:border-accent/30 transition-all duration-500 ease-out">
+      <img
+        src={work.image}
+        alt={work.title}
+        class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+        referrerpolicy="no-referrer"
+        onerror="this.src='/images/placeholder.jpg'"
+      />
+      
+      <!-- Overlay -->
+      <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
+      
+      {/* Content Overlay */}
+      <div class="absolute bottom-0 left-0 right-0 p-4 transform translate-y-1 group-hover:translate-y-0 transition-transform duration-300">
+        <div class="flex gap-1 flex-wrap mb-1.5">
+          {genres.map((g: string) => {
+            const localLabel = { anime: 'アニメ', drama: 'ドラマ', movie: '映画' }[g as keyof typeof genreColorMap];
+            const localColor = genreColorMap[g as keyof typeof genreColorMap];
+            return (
+              <span class={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${localColor} bg-opacity-90`}>
+                {localLabel}
+              </span>
+            );
+          })}
+        </div>
+        <h3 class="text-white font-display text-base md:text-lg font-bold leading-tight line-clamp-2">
+          {work.title}
+        </h3>
+        <p class="text-white/70 text-[10px] mt-0.5">
+          {work.spotCount} 箇所の聖地
+        </p>
+      </div>
+    </div>
+  </a>
+</div>

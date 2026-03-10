@@ -1,0 +1,39 @@
+---
+interface Props {
+  lat: number;
+  lng: number;
+  spotName: string;
+  title: string;
+}
+const { lat, lng, spotName, title } = Astro.props;
+---
+
+<div id="map" class="w-full h-80 rounded-2xl overflow-hidden shadow-card z-0"></div>
+
+<script define:vars={{ lat, lng, spotName, title }}>
+  // Dynamically load Leaflet
+  const script = document.createElement('script');
+  script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+  script.onload = () => {
+    const map = L.map('map', { zoomControl: true }).setView([lat, lng], 15);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map);
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="background:#E63946;width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 36],
+      popupAnchor: [0, -36],
+    });
+
+    L.marker([lat, lng], { icon })
+      .addTo(map)
+      .bindPopup(`<div style="font-family:'Noto Sans JP',sans-serif;padding:4px"><b style="color:#1D3557">${spotName}</b><br><span style="color:#E63946;font-size:12px">『${title}』</span></div>`)
+      .openPopup();
+  };
+  document.head.appendChild(script);
+</script>

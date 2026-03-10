@@ -1,0 +1,59 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import SpotCard from '../../components/SpotCard.astro';
+
+export async function getStaticPaths() {
+  const allSpots = await getCollection('spots');
+  const prefectures = [...new Set(allSpots.map(s => s.data.prefecture))];
+  return prefectures.map((name) => ({
+    params: { name },
+    props: { prefecture: name },
+  }));
+}
+
+interface Props {
+  prefecture: string;
+}
+
+const { prefecture } = Astro.props;
+const allSpots = await getCollection('spots');
+const spots = allSpots.filter(s => s.data.prefecture === prefecture);
+---
+
+<BaseLayout
+  title={`${prefecture}の聖地一覧`}
+  description={`${prefecture}にあるアニメ・ドラマ・映画の聖地スポットを${spots.length}件紹介。作品ゆかりの地を訪ねる旅をサポートします。`}
+>
+  <Header />
+
+  <!-- Page Header -->
+  <div class="bg-gradient-to-br from-slate-50 to-white border-b border-gray-100 py-14 px-4">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center gap-2 text-sm text-gray-400 mb-4">
+        <a href="/" class="hover:text-navy transition-colors">ホーム</a>
+        <span>/</span>
+        <a href="/spots" class="hover:text-navy transition-colors">スポット一覧</a>
+        <span>/</span>
+        <span class="text-navy font-medium">{prefecture}</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="text-5xl">📍</span>
+        <div>
+          <h1 class="font-display text-4xl sm:text-5xl font-bold text-navy mb-2">{prefecture}</h1>
+          <p class="text-gray-500">{spots.length}件の聖地スポットを掲載中</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 py-12">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {spots.map((spot) => <SpotCard spot={spot} />)}
+    </div>
+  </main>
+
+  <Footer />
+</BaseLayout>

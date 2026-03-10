@@ -1,0 +1,74 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import SpotCard from '../../components/SpotCard.astro';
+import FilterBar from '../../components/FilterBar.astro';
+
+const allSpots = await getCollection('spots');
+const prefectures = [...new Set(allSpots.map(s => s.data.prefecture))].sort();
+---
+
+<BaseLayout
+  title="聖地スポット一覧"
+  description="アニメ・ドラマ・映画の聖地を都道府県・ジャンルでフィルタリング。日本全国の聖地巡礼スポット一覧。"
+>
+  <Header />
+
+  <!-- Page Header -->
+  <div class="bg-gradient-to-br from-slate-50 to-white border-b border-gray-100 py-14 px-4">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center gap-2 text-sm text-gray-400 mb-4">
+        <a href="/" class="hover:text-navy transition-colors">ホーム</a>
+        <span>/</span>
+        <span class="text-navy font-medium">スポット一覧</span>
+      </div>
+      <h1 class="font-display text-4xl sm:text-5xl font-bold text-navy mb-3">聖地スポット一覧</h1>
+      <p class="text-gray-500 text-lg">全{allSpots.length}件のスポットを掲載中。ジャンル・都道府県・作品名から探せます。</p>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 py-12">
+    <!-- Filter Bar -->
+    <FilterBar prefectures={prefectures} />
+
+    <!-- Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="spots-grid">
+      {allSpots.map((spot) => (
+        <div
+          data-spot-card
+          data-genre={spot.data.genre}
+          data-prefecture={spot.data.prefecture}
+          data-text={`${spot.data.title} ${spot.data.spotName} ${spot.data.prefecture} ${spot.data.description}`.toLowerCase()}
+        >
+          <SpotCard spot={spot} />
+        </div>
+      ))}
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden text-center py-24">
+      <div class="text-6xl mb-4">🔍</div>
+      <h3 class="text-xl font-bold text-navy mb-2">スポットが見つかりませんでした</h3>
+      <p class="text-gray-500">フィルターを変更して再度お試しください</p>
+    </div>
+  </main>
+
+  <Footer />
+</BaseLayout>
+
+<script>
+  // Show/hide empty state based on visible cards
+  const observer = new MutationObserver(() => {
+    const visible = document.querySelectorAll('[data-spot-card]:not([hidden])').length;
+    const emptyState = document.getElementById('empty-state');
+    if (emptyState) emptyState.classList.toggle('hidden', visible > 0);
+  });
+  const grid = document.getElementById('spots-grid');
+  if (grid) observer.observe(grid, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+
+  // Initial count update
+  const countEl = document.getElementById('spot-count');
+  if (countEl) countEl.textContent = String(document.querySelectorAll('[data-spot-card]').length);
+</script>

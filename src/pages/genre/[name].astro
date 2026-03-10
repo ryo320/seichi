@@ -1,0 +1,110 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import WorkCard from '../../components/WorkCard.astro';
+
+export async function getStaticPaths() {
+  return [
+    { params: { name: 'anime' } },
+    { params: { name: 'drama' } },
+    { params: { name: 'movie' } },
+  ];
+}
+
+const { name } = Astro.params;
+type Genre = 'anime' | 'drama' | 'movie';
+const genre = name as Genre;
+
+const allSpots = await getCollection('spots');
+const genreSpots = allSpots.filter(s => Array.isArray(s.data.genre) ? s.data.genre.includes(genre) : s.data.genre === genre);
+
+// 作品ごとにグループ化
+const worksMap = new Map();
+genreSpots.forEach(spot => {
+  const title = spot.data.title;
+  if (!worksMap.has(title)) {
+    const slug = title
+      .replace(/[。、！？！？『』]/g, '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-');
+      
+    const g = Array.isArray(spot.data.genre) ? spot.data.genre : [spot.data.genre];
+    worksMap.set(title, {
+      title,
+      genre: spot.data.genre,
+      image: spot.data.officialImage || spot.data.image || '/images/placeholder.jpg',
+      spotCount: 0,
+      slug,
+    });
+  }
+  worksMap.get(title).spotCount++;
+});
+const works = Array.from(worksMap.values());
+
+const meta: Record<Genre, { label: string; icon: string; description: string; color: string }> = {
+  anime: {
+    label: 'アニメ聖地',
+    icon: '🎌',
+    description: 'アニメ作品の舞台となったロケ地・モデル地を全国から厳選紹介。',
+    color: 'from-purple-500 to-purple-700',
+  },
+  drama: {
+    label: 'ドラマ聖地',
+    icon: '📺',
+    description: 'NHK大河・連続テレビ小説・民放人気ドラマのロケ地を全国から紹介。',
+    color: 'from-blue-500 to-blue-700',
+  },
+  movie: {
+    label: '映画聖地',
+    icon: '🎬',
+    description: '邦画・アニメ映画のロケ地・モデル地を全国から厳選紹介。',
+    color: 'from-amber-500 to-amber-700',
+  },
+};
+
+const { label, icon, description, color } = meta[genre];
+---
+
+<BaseLayout
+  title={`${label}一覧`}
+  description={`${description}都道府県別・作品別に検索できます。`}
+>
+  <Header />
+
+  <!-- Page Header -->
+  <div class={`bg-gradient-to-br ${color} text-white py-16 px-4`}>
+  <div class="relative bg-navy pt-24 pb-16 px-4 overflow-hidden">
+    <div class="absolute inset-0 opacity-10" style="background-image: url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\");"></div>
+    <div class="relative max-w-7xl mx-auto text-center text-white">
+      <div class="flex items-center justify-center gap-2 text-sm text-white/60 mb-4">
+        <a href="/" class="hover:text-white transition-colors">ホーム</a>
+        <span>/</span>
+        <span class="text-white font-medium">{label}</span>
+      </div>
+      <div class="inline-block px-4 py-1.5 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-[0.3em] mb-6 border border-white/20 shadow-sm backdrop-blur-sm">
+        Explore Holy Places
+      </div>
+      <h1 class="font-display text-5xl sm:text-6xl font-black mb-4 tracking-tighter">{label}</h1>
+      <p class="text-white/60 text-lg font-medium">{works.length} 作品の聖地を掲載中</p>
+      <p class="text-white/40 mt-4 max-w-2xl mx-auto text-sm leading-relaxed">{description}</p>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 py-12">
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      {works.map((work) => <WorkCard work={work} />)}
+    </div>
+
+    {works.length === 0 && (
+      <div class="text-center py-24">
+        <div class="text-6xl mb-4">{icon}</div>
+        <p class="text-gray-500">現在作品を準備中です</p>
+      </div>
+    )}
+  </main>
+
+  <Footer />
+</BaseLayout>

@@ -1,0 +1,255 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+
+const allSpots = await getCollection('spots');
+const spotsJson = JSON.stringify(allSpots.map(s => ({
+  slug: s.slug,
+  title: s.data.title,
+  spotName: s.data.spotName,
+  genre: s.data.genre,
+  prefecture: s.data.prefecture,
+  lat: s.data.lat,
+  lng: s.data.lng,
+  image: s.data.image,
+  description: s.data.description,
+})));
+---
+
+<BaseLayout
+  title="聖地マップ"
+  description="日本全国のアニメ・ドラマ・映画の聖地を地図で一覧表示。都道府県をまたいで聖地スポットの位置を把握できます。"
+>
+  <Fragment slot="head">
+    <!-- Wikimedia Commons 画像ブロック対策 -->
+    <meta name="referrer" content="no-referrer" />
+  </Fragment>
+
+  <Header />
+
+  <!-- Page Header -->
+  <div class="bg-gradient-to-br from-slate-50 to-white border-b border-gray-100 py-12 px-4">
+    <div class="max-w-7xl mx-auto">
+      <nav class="flex items-center gap-2 text-sm text-gray-400 mb-4">
+        <a href="/" class="hover:text-navy transition-colors">ホーム</a>
+        <span>/</span>
+        <span class="text-navy font-medium">聖地マップ</span>
+      </nav>
+      <div class="flex items-start gap-4">
+        <div class="p-3 bg-white rounded-2xl shadow-sm border border-gray-100 text-3xl">📍</div>
+        <div>
+          <h1 class="font-display text-4xl sm:text-5xl font-bold text-navy mb-2">聖地マップ</h1>
+          <p class="text-gray-500">全{allSpots.length}件のスポットを地図で確認。クリックしてスポット詳細を表示。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Filters -->
+  <div class="bg-white border-b border-navy/5 py-4 px-4 sticky top-16 z-40 shadow-sm overflow-x-auto">
+    <div class="max-w-7xl mx-auto flex items-center gap-4 whitespace-nowrap">
+      <span class="text-[10px] font-black text-navy/30 uppercase tracking-[0.2em]">Filter</span>
+      <div class="h-4 w-[1px] bg-navy/10 hidden sm:block"></div>
+      
+      <button
+        id="filter-all"
+        class="map-filter-btn active px-5 py-1.5 rounded-sm text-[11px] font-black uppercase tracking-widest border border-navy/20 transition-all font-serif"
+        data-filter="all"
+      >
+        すべて <span id="count-all" class="ml-1 opacity-50 font-sans">{allSpots.length}</span>
+      </button>
+      <button
+        id="filter-anime"
+        class="map-filter-btn px-5 py-1.5 rounded-sm text-[11px] font-black uppercase tracking-widest border border-navy/10 text-navy/60 hover:border-navy/30 transition-all font-serif"
+        data-filter="anime"
+      >
+        アニメ <span id="count-anime" class="ml-1 opacity-50 font-sans">{allSpots.filter(s => s.data.genre === 'anime').length}</span>
+      </button>
+      <button
+        id="filter-drama"
+        class="map-filter-btn px-5 py-1.5 rounded-sm text-[11px] font-black uppercase tracking-widest border border-navy/10 text-navy/60 hover:border-navy/30 transition-all font-serif"
+        data-filter="drama"
+      >
+        ドラマ <span id="count-drama" class="ml-1 opacity-50 font-sans">{allSpots.filter(s => s.data.genre === 'drama').length}</span>
+      </button>
+      <button
+        id="filter-movie"
+        class="map-filter-btn px-5 py-1.5 rounded-sm text-[11px] font-black uppercase tracking-widest border border-navy/10 text-navy/60 hover:border-navy/30 transition-all font-serif"
+        data-filter="movie"
+      >
+        映画 <span id="count-movie" class="ml-1 opacity-50 font-sans">{allSpots.filter(s => s.data.genre === 'movie').length}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Map Container -->
+  <main class="flex-1 relative" style="height: calc(100vh - 200px); min-height: 600px;">
+    <div id="map" class="absolute inset-0 w-full h-full overscroll-none"></div>
+  </main>
+
+  <Footer />
+</BaseLayout>
+
+<script define:vars={{ spotsJson }}>
+  // Parse spots data
+  const spots = JSON.parse(spotsJson);
+
+  function initMap() {
+    const L = window.L;
+    const container = document.getElementById('map');
+    
+    if (!L || !container) {
+      setTimeout(initMap, 100);
+      return;
+    }
+
+    // Initialize map
+    const map = L.map('map', {
+      center: [36.5, 137.0],
+      zoom: 6,
+      zoomControl: true,
+      scrollWheelZoom: true,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 18,
+    }).addTo(map);
+
+    // Ensure map displays correctly on desktop
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+
+    // Genre colors
+    const genreColors = {
+      anime: '#7c3aed',
+      drama: '#2563eb',
+      movie: '#d97706',
+    };
+    const genreLabels = {
+      anime: 'アニメ',
+      drama: 'ドラマ',
+      movie: '映画',
+    };
+
+    // Create custom icon
+    function createIcon(genre) {
+      const color = genreColors[genre] || '#1D3557';
+      return L.divIcon({
+        className: '',
+        html: `<div style="
+          width: 36px; height: 36px;
+          background: ${color};
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          border: 3px solid white;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer;
+        "><div style="transform: rotate(45deg); color: white; font-size: 14px; line-height: 1; margin-top: -2px; margin-right: -2px;">${genre === 'anime' ? '🎌' : genre === 'drama' ? '📺' : '🎬'}</div></div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 36],
+        popupAnchor: [0, -36],
+      });
+    }
+
+    // Add markers
+    const markers = {};
+    spots.forEach(spot => {
+      const marker = L.marker([spot.lat, spot.lng], { icon: createIcon(spot.genre) })
+        .addTo(map)
+        .bindPopup(`
+          <div style="min-width: 220px; font-family: 'Noto Sans JP', sans-serif;">
+            <img src="${spot.image}" alt="${spot.spotName}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;" onerror="this.style.display='none'" />
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+              <span style="background: ${genreColors[spot.genre]}20; color: ${genreColors[spot.genre]}; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;">${genreLabels[spot.genre]}</span>
+              <span style="font-size: 11px; color: #888;">${spot.prefecture}</span>
+            </div>
+            <h3 style="font-size: 15px; font-weight: bold; color: #1D3557; margin: 0 0 3px;">${spot.spotName}</h3>
+            <p style="font-size: 11px; color: #E63946; margin: 0 0 8px;">『${spot.title}』</p>
+            <p style="font-size: 12px; color: #666; margin: 0 0 10px; line-height: 1.5;">${spot.description.slice(0, 80)}...</p>
+            <a href="/spots/${spot.slug}" style="display: inline-block; background: #1D3557; color: white; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; text-decoration: none;">詳細を見る →</a>
+          </div>
+        `, { maxWidth: 280 });
+
+      if (!markers[spot.genre]) markers[spot.genre] = [];
+      markers[spot.genre].push(marker);
+    });
+
+    // Filter buttons
+    let currentFilter = 'all';
+    document.querySelectorAll('.map-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const filter = btn.dataset.filter;
+        currentFilter = filter;
+
+        // Update button styles
+        document.querySelectorAll('.map-filter-btn').forEach(b => {
+          b.classList.remove('active', 'bg-navy', 'text-white');
+          b.classList.add('text-gray-600');
+          b.style.backgroundColor = '';
+          b.style.color = '';
+          b.style.borderColor = '';
+        });
+
+        // Apply filter
+        ['anime', 'drama', 'movie'].forEach(genre => {
+          if (!markers[genre]) return;
+          markers[genre].forEach(m => {
+            if (filter === 'all' || filter === genre) {
+              if (!map.hasLayer(m)) m.addTo(map);
+            } else {
+              if (map.hasLayer(m)) map.removeLayer(m);
+            }
+          });
+        });
+
+        // Update active button
+        const activeBtn = document.querySelector(`[data-filter="${filter}"]`);
+        if (activeBtn) {
+          if (filter === 'all') {
+            activeBtn.classList.add('bg-navy', 'text-white');
+            activeBtn.style.borderColor = '#1D3557';
+          } else {
+            const colors = { anime: '#7c3aed', drama: '#2563eb', movie: '#d97706' };
+            activeBtn.style.backgroundColor = colors[filter];
+            activeBtn.style.color = 'white';
+            activeBtn.style.borderColor = colors[filter];
+          }
+        }
+      });
+    });
+  }
+
+  // Start initialization
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMap);
+  } else {
+    initMap();
+  }
+</script>
+
+<style>
+  .map-filter-btn.active {
+    background-color: #2C3A4B;
+    color: white;
+    border-color: #2C3A4B;
+  }
+  /* Leaflet popup custom style */
+  :global(.leaflet-popup-content-wrapper) {
+    border-radius: 12px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+    padding: 0 !important;
+    overflow: hidden;
+  }
+  :global(.leaflet-popup-content) {
+    margin: 12px !important;
+  }
+  :global(.leaflet-popup-close-button) {
+    top: 8px !important;
+    right: 8px !important;
+  }
+</style>
